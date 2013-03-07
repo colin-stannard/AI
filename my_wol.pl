@@ -76,31 +76,32 @@ player_possible_moves(Player, [AliveBlues, AliveReds], PossibleMoves) :-
   ).
 
 
-play_possible_moves([AliveBlues,AliveReds], PossibleMoves, Boards) :-
+play_possible_moves(Player, Board, PossibleMoves, Boards) :-
   % For all valid moves, apply the move to the current board and count how many
   % opponent pieces are alive after the move has been made.
   findall(
     % Produce an object containing the move made and the resulting board
-    [[A,B,MA,MB], AfterCrankBoard, PlayerAliveCount, OtherPlayerAliveCount],
+    [Move, AfterCrankBoard, PlayerAliveCount, OtherPlayerAliveCount],
 
     % Filtering rule
-    ( member([A,B,MA,MB], PossibleMoves),
-      do_move([A,B,MA,MB], [AliveBlues,AliveReds], PreCrankBoard),
+    ( member(Move, PossibleMoves),
+      do_move(Move, Board, PreCrankBoard),
       next_generation(PreCrankBoard, AfterCrankBoard),
-
-      ( member([A,B], AliveBlues),
-        count_player_pieces('b', [AliveBlues,AliveReds], PlayerAliveCount),
-        count_player_pieces('r', [AliveBlues,AliveReds], OtherPlayerAliveCount)
-      );
-      ( member([A,B], AliveReds),
-        count_player_pieces('r', [AliveBlues,AliveReds], PlayerAliveCount),
-        count_player_pieces('b', [AliveBlues,AliveReds], OtherPlayerAliveCount)
-      )
+      count_player_pieces(Player, Board, PlayerAliveCount),
+      oppositePlayer(Player, OtherPlayer),
+      count_player_pieces(OtherPlayer, Board, OtherPlayerAliveCount)        
+     
     ),
 
     % List of generated objects
     Boards
   ).
+
+
+oppositePlayer('b','r').
+oppositePlayer('r','b').
+
+
 
 do_move([A,B,MA,MB], [AliveBlues, AliveReds], [NewAliveBlues, NewAliveReds]) :-
 % Blue player makes a move
@@ -126,10 +127,10 @@ count_player_pieces('r', [_, ActiveReds], Count) :-
 
 
 
-other_player_count_comparison([_, _, _, Count], [_, _, Count1, _]) :-
+other_player_count_comparison([_, _, _, Count], [_, _, _, Count1]) :-
   Count < Count1.
 
-player_count_comparison([_, _, _, Count], [_, _, Count1, _]) :-
+player_count_comparison([_, _, Count, _], [_, _, Count1, _]) :-
   Count < Count1.
 
 landgrab_count_comparison([_, _, A, B], [_, _, A1, B1]) :-
@@ -146,7 +147,7 @@ bloodlust(Player, Board, NewBoard, Move) :-
   player_possible_moves(Player, Board, PossibleMoves),
 
   % Simulate each possible move
-  play_possible_moves(Board, PossibleMoves, Boards),
+  play_possible_moves(Player, Board, PossibleMoves, Boards),
 
   % Choose the move that results in the opponent having the fewest pieces left
   min_member(other_player_count_comparison, [Move, _, _, _], Boards),
@@ -164,7 +165,7 @@ self_preservation(Player, Board, NewBoard, Move) :-
   player_possible_moves(Player, Board, PossibleMoves),
 
   % Simulate each possible move
-  play_possible_moves(Board, PossibleMoves, Boards),
+  play_possible_moves(Player, Board, PossibleMoves, Boards),
 
   % Choose the move that results in the player having the most pieces left
   max_member(player_count_comparison, [Move, _, _, _], Boards),
@@ -182,7 +183,7 @@ land_grab(Player, Board, NewBoard, Move) :-
   player_possible_moves(Player, Board, PossibleMoves),
 
   % Simulate each possible move
-  play_possible_moves(Board, PossibleMoves, Boards),
+  play_possible_moves(Player, Board, PossibleMoves, Boards),
 
   % Choose the move that results in the most land being grabbed
   max_member(landgrab_count_comparison, [Move, _, _, _], Boards),
@@ -200,13 +201,40 @@ minimax(Player, [AliveBlues, AliveReds], NewBoard, Move) :-
   player_possible_moves(Player, [AliveBlues, AliveReds], PossibleMoves),
 
   % Simulate each possible move
-  play_possible_moves([AliveBlues, AliveReds], PossibleMoves, Boards),
+  play_possible_moves(Player, [AliveBlues, AliveReds], PossibleMoves, Boards),
 
   % Choose the move that results in the most land being grabbed
   max_member(landgrab_count_comparison, [Move, _, _, _], Boards),
 
   % Apply the chosen move to the game board
   do_move(Move, [AliveBlues, AliveReds], NewBoard).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
