@@ -11,20 +11,17 @@
 %------------------------------------------------------------------------------%
 % Strategy testing                                                             %
 %------------------------------------------------------------------------------%
-are_identical(X,Y):-
-X==Y.
-
 test_strategy(NumberOfGames,FirstPlayerStrategy, SecondPlayerStrategy) :-
   run_test(0, NumberOfGames, FirstPlayerStrategy, SecondPlayerStrategy,
     [], [], 0).
 
 run_test(NumberOfGames, NumberOfGames, _, _, Winners, Moves, RunTime) :-
-  include(are_identical('b'), Winners, PlayerOneWinners),
+  include(==('b'), Winners, PlayerOneWinners),
   length(PlayerOneWinners,PlayerOneWins),
-  include(are_identical('r'), Winners, PlayerTwoWinners),
+  include(==('r'), Winners, PlayerTwoWinners),
   length(PlayerTwoWinners,PlayerTwoWins),
-  exclude(are_identical('b'), Winners, NoBlues),
-  exclude(are_identical('r'), NoBlues, Draws),
+  exclude(==('b'), Winners, NoBlues),
+  exclude(==('r'), NoBlues, Draws),
   length(Draws, NumberOfDraws),
   min_member(Shortest,Moves),
   sumlist(Moves, TotalMoves),
@@ -88,9 +85,8 @@ play_possible_moves(Player, Board, PossibleMoves, Boards) :-
       do_move(Move, Board, PreCrankBoard),
       next_generation(PreCrankBoard, AfterCrankBoard),
       count_player_pieces(Player, Board, PlayerAliveCount),
-      oppositePlayer(Player, OtherPlayer),
-      count_player_pieces(OtherPlayer, Board, OtherPlayerAliveCount)        
-     
+      other_player(Player, OtherPlayer),
+      count_player_pieces(OtherPlayer, Board, OtherPlayerAliveCount)
     ),
 
     % List of generated objects
@@ -98,8 +94,8 @@ play_possible_moves(Player, Board, PossibleMoves, Boards) :-
   ).
 
 
-oppositePlayer('b','r').
-oppositePlayer('r','b').
+other_player('b','r').
+other_player('r','b').
 
 
 
@@ -136,7 +132,8 @@ player_count_comparison([_, _, Count, _], [_, _, Count1, _]) :-
 landgrab_count_comparison([_, _, A, B], [_, _, A1, B1]) :-
   (A - B) < (A1 - B1).
 
-
+move_value_comparison([_, Value], [_, Value1]) :-
+  Value < Value1.
 
 % This strategy chooses the next move for a player to be the one which (after 
 % Conway’s crank) produces the board state with the fewest number of opponent’s
@@ -204,7 +201,17 @@ minimax(Player, [AliveBlues, AliveReds], NewBoard, Move) :-
   play_possible_moves(Player, [AliveBlues, AliveReds], PossibleMoves, Boards),
 
   % Choose the move that results in the most land being grabbed
-  max_member(landgrab_count_comparison, [Move, _, _, _], Boards),
+  findall(
+    [Move, CurrentHeuristicValue],
+    ( member([Move, AfterCrankBoard, _, _], Boards),
+      other_player(Player, OtherPlayer),
+      max(1, OtherPlayer, AfterCrankBoard, CurrentHeuristicValue)
+    ),
+    HVals
+  ),
+
+  % Minimize opponents maximum move
+  min_member(move_value_comparison, [Move, _], HVals),
 
   % Apply the chosen move to the game board
   do_move(Move, [AliveBlues, AliveReds], NewBoard).
@@ -212,29 +219,71 @@ minimax(Player, [AliveBlues, AliveReds], NewBoard, Move) :-
 
 
 
+min(Depth, Player, Board, HeuristicValue) :-
+  Depth >= 1,
+
+  % Play all possible games
+  player_possible_moves(Player, Board, PossibleMoves),
+  play_possible_moves(Player, Board, PossibleMoves, Boards),
+
+  % Only recurse for boards with children
+  length(Boards, Length),
+  Length > 0,
+
+  % Produce list of heuristic values for children
+  findall(
+    [CurrentHeuristicValue],
+    ( member([_, AfterCrankBoard, _, _], Boards),
+      other_player(Player, OtherPlayer),
+      Depth1 is Depth - 1,
+      max(Depth1, OtherPlayer, AfterCrankBoard, CurrentHeuristicValue)
+    ),
+    HVals
+  ),
+
+  % Select minimum heuristic value
+  min_member(HeuristicValue, HVals).
+
+
+min(Depth, Player, Board, HeuristicValue) :-
+  Depth >= 0,
+  other_player(Player, OtherPlayer),
+  count_player_pieces(Player, Board, PlayerAliveCount),
+  count_player_pieces(OtherPlayer, Board, OtherPlayerAliveCount),
+  HeuristicValue is PlayerAliveCount - OtherPlayerAliveCount.
 
 
 
+max(Depth, Player, Board, HeuristicValue) :-
+  Depth >= 1,
+
+  % Play all possible games
+  player_possible_moves(Player, Board, PossibleMoves),
+  play_possible_moves(Player, Board, PossibleMoves, Boards),
+
+  % Only recurse for boards with children
+  length(Boards, Length),
+  Length > 0,
+
+  % Produce list of heuristic values for children
+  findall(
+    [CurrentHeuristicValue],
+    ( member([_, AfterCrankBoard, _, _], Boards),
+      other_player(Player, OtherPlayer),
+      Depth1 is Depth - 1,
+      min(Depth1, OtherPlayer, AfterCrankBoard, CurrentHeuristicValue)
+    ),
+    HVals
+  ),
+
+  % Select maximum heuristic value
+  max_member(HeuristicValue, HVals).
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+max(Depth, Player, Board, HeuristicValue) :-
+  Depth >= 0,
+  other_player(Player, OtherPlayer),
+  count_player_pieces(Player, Board, PlayerAliveCount),
+  count_player_pieces(OtherPlayer, Board, OtherPlayerAliveCount),
+  HeuristicValue is PlayerAliveCount - OtherPlayerAliveCount.
 
