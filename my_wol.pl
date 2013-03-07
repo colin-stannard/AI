@@ -84,9 +84,9 @@ play_possible_moves(Player, Board, PossibleMoves, Boards) :-
     ( member(Move, PossibleMoves),
       do_move(Move, Board, PreCrankBoard),
       next_generation(PreCrankBoard, AfterCrankBoard),
-      count_player_pieces(Player, Board, PlayerAliveCount),
+      count_player_pieces(Player, AfterCrankBoard, PlayerAliveCount),
       other_player(Player, OtherPlayer),
-      count_player_pieces(OtherPlayer, Board, OtherPlayerAliveCount)
+      count_player_pieces(OtherPlayer, AfterCrankBoard, OtherPlayerAliveCount)
     ),
 
     % List of generated objects
